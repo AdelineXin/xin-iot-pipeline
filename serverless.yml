@@ -1,0 +1,57 @@
+service: xin-iot-pipeline
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: eu-north-1  # 部署在斯德哥尔摩
+  environment:
+    TABLE_NAME: xin-vehicle-telemetry
+    SQS_QUEUE_URL: !Ref XinEmergencyAlertsQueue # 动态获取自动生成的 SQS URL！
+
+  # 🌟 自动配置 Lambda 安全角色，授予其最小限度的读写权限！
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+          Resource: !GetAtt XinVehicleTelemetryTable.Arn
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+          Resource: !GetAtt XinEmergencyAlertsQueue.Arn
+
+functions:
+  ProcessXinVehicleData:
+    handler: handler.handler  # 指向 handler.mjs 的 handler 函数
+    events:
+      # 🌟 极度强大！这一行配置会自动在 AWS IoT Core 里创建 SQL 规则并绑定到 Lambda！
+      - iot:
+          name: xin_telemetry_rule_iac
+          sql: "SELECT * FROM 'telemetry/xin-test-car-01'"
+
+# 🌟 下方定义了我们要一键创建的物理资源（DynamoDB & SQS）
+resources:
+  Resources:
+    # 自动创建 DynamoDB 表
+    XinVehicleTelemetryTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: xin-vehicle-telemetry
+        AttributeDefinitions:
+          - AttributeName: vehicle_id
+            AttributeType: S
+          - AttributeName: timestamp
+            AttributeType: N
+        KeySchema:
+          - AttributeName: vehicle_id
+            KeyType: HASH
+          - AttributeName: timestamp
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST # 按需计费，极致省钱
+
+    # 自动创建 SQS 队列
+    XinEmergencyAlertsQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: xin-emergency-alerts

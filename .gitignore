@@ -1,0 +1,12 @@
+# 1. 🌟 绝对机密：禁止上传车端安全证书和密钥
+certs/
+
+# 2. 忽略 Serverless 本地打包缓存和日志
+.serverless/
+*.log
+.serverless
+
+# 3. 忽略 Google Colab 自动生成的系统级垃圾文件夹
+.config/
+sample_data/
+.ipynb_checkpoints/

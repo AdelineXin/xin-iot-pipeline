@@ -1,0 +1,44 @@
+name: Deploy xin-iot-pipeline to AWS
+
+# 1. 触发时机：当有人向 main 分支推送（Push）代码时，自动启动流水线
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Build & Deploy Stack
+    runs-on: ubuntu-latest # 使用最新的 Ubuntu 虚拟环境作为流水线运行容器 👈
+
+    steps:
+      # 1. 拉取当前 GitHub 仓库里的代码到虚拟机中 [1.1.2]
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. 在虚拟机里安装指定版本的 Node.js [1.1.2]
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20 # 匹配我们云端 Lambda 的运行时环境
+
+      # 3. 安装依赖（如果后续有写单元测试，可以在这里执行 npm install 运行测试）
+      - name: Install Project Dependencies
+        run: |
+          if [ -f package.json ]; then
+            npm install
+          fi
+
+      # 4. 全局安装经典、安全的 Serverless v3 版本 [1.1.2]
+      # (我们锁死 v3，彻底避开 v4 极其麻烦的商业强制登录限制！👈)
+      - name: Install Serverless CLI (v3)
+        run: npm install -g serverless@3
+
+      # 5. 执行一键部署到 AWS [1.1.2]
+      - name: Deploy to AWS
+        run: serverless deploy --stage prod
+        env:
+          # 从 GitHub 安全保险箱（Secrets）中动态、加密地读入密钥 [1.1.2]
+          # 这确保了代码里 100% 不会泄露任何敏感信息！(符合企业安全规范 👈)
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
